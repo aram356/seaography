@@ -13,6 +13,10 @@ where
     T: EntityTrait,
 {
     if let Some(filters) = filters {
+        // Handle null filter values (e.g., when $filters variable is declared but not provided)
+        if filters.is_null() {
+            return Ok(Condition::all());
+        }
         let filters = filters.object()?;
 
         recursive_prepare_condition::<T>(context, &filters)

@@ -90,6 +90,14 @@ impl PaginationInputBuilder {
         }
 
         let binding = value.expect("Checked not null");
+        // Handle null pagination values (e.g., when $pagination variable is declared but not provided)
+        if binding.is_null() {
+            return Ok(PaginationInput {
+                cursor: None,
+                offset: None,
+                page: None,
+            });
+        }
         let object = binding.object()?;
 
         let cursor_input_builder = CursorInputBuilder {

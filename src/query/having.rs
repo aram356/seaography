@@ -22,6 +22,10 @@ where
     T: EntityTrait,
 {
     if let Some(having) = having {
+        // Handle null having values (e.g., when $having variable is declared but not provided)
+        if having.is_null() {
+            return Ok(condition);
+        }
         let having = having.object()?;
         let related = ctx.data_unchecked::<RelatedEntityFilter<T>>();
         related.apply(context, condition, &having)

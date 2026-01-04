@@ -63,6 +63,10 @@ impl OrderInputBuilder {
     {
         match value {
             Some(value) => {
+                // Handle null order values (e.g., when $orderBy variable is declared but not provided)
+                if value.is_null() {
+                    return Ok(Vec::new());
+                }
                 let mut data = Vec::new();
 
                 let order_by = value.object()?;
