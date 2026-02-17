@@ -80,3 +80,7 @@ sea_orm::Value::Json(Some(Box::new(value)))
 ```
 
 Patches 5-6 fix compatibility with sea-orm 2.0.0-rc.32, which changed `Value::Json` to use `Box<serde_json::Value>` instead of plain `serde_json::Value`.
+
+**7. `Cargo.toml`** - Widen `async-graphql` version constraint from `~7.0.17` to `^7.0.17`:
+
+Upstream pins `async-graphql` to `~7.0.17` (`>=7.0.17, <7.1.0`), which conflicts with tradauri's `^7.2` requirement. Changed to `^7.0.17` to allow resolution with newer minor versions.
