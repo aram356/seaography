@@ -63,3 +63,20 @@ if let Some(having) = having {
     // ...
 }
 ```
+
+**5. `src/outputs/entity_object.rs`** - Dereference `Box<Value>` for `Value::from_json()`:
+
+```rust
+value.map(|it| match Value::from_json(*it.clone()) {
+    Ok(v) => v,
+    Err(_) => Value::from(it.to_string()),
+})
+```
+
+**6. `src/builder_context/types_map.rs`** - Box the value for `sea_orm::Value::Json`:
+
+```rust
+sea_orm::Value::Json(Some(Box::new(value)))
+```
+
+Patches 5-6 fix compatibility with sea-orm 2.0.0-rc.32, which changed `Value::Json` to use `Box<serde_json::Value>` instead of plain `serde_json::Value`.
