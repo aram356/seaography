@@ -62,6 +62,20 @@ async fn test_simple_query() {
 }
 
 #[tokio::test]
+async fn explicit_null_query_arguments_act_like_omitted_arguments() {
+    let schema = schema().await;
+    let baseline = schema.execute("{ film { nodes { filmId } } }").await;
+    assert!(baseline.errors.is_empty(), "{:?}", baseline.errors);
+
+    for argument in ["filters", "having", "orderBy", "pagination"] {
+        let query = format!("{{ film({argument}: null) {{ nodes {{ filmId }} }} }}");
+        let with_null = schema.execute(query).await;
+        assert!(with_null.errors.is_empty(), "{argument}: {:?}", with_null.errors);
+        assert_eq!(with_null.data, baseline.data, "{argument}");
+    }
+}
+
+#[tokio::test]
 async fn test_simple_query_with_filter() {
     let schema = schema().await;
 

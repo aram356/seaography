@@ -1,86 +1,29 @@
-# Patches
+# Fork patches
 
-## Seaography
+This fork tracks Seaography 2.0.0-rc.9 and keeps two compatibility changes for downstream users.
 
-This fork contains patches to handle null GraphQL variable values correctly.
+## Nullable GraphQL query arguments
 
-### Why Patch?
+Upstream tries to parse an explicit GraphQL `null` as an input object. A query such as
+`film(filters: null, having: null, orderBy: null, pagination: null)` then fails with
+`internal: not an object`. The fork treats null the same as an omitted optional
+argument in four places:
 
-Seaography doesn't handle null GraphQL variable values correctly. When a query declares optional variables like:
+- `src/query/filtering.rs`: return an empty filter condition.
+- `src/query/having.rs`: retain the existing condition.
+- `src/inputs/order_input.rs`: return no ordering clauses.
+- `src/inputs/pagination_input.rs`: return no pagination strategy.
 
-```graphql
-query GetBrokers($filters: BrokersFilterInput, $orderBy: BrokersOrderInput, $pagination: PaginationInput) {
-  brokers(filters: $filters, orderBy: $orderBy, pagination: $pagination) { ... }
-}
-```
+`examples/sqlite/tests/query_tests.rs` checks each nullable argument against the
+same query with that argument omitted. The regression test fails on upstream
+2.0.0-rc.9 and passes on this fork.
 
-And these variables are not provided (passed as `null`), seaography's code incorrectly assumes that `Some(value)` means the value is a valid object and calls `.object()` on it. However, `null` is a valid `Some` value in GraphQL that isn't an object, causing an "internal: not an object" error.
+## async-graphql version range
 
-### Patches Applied
+Upstream pins `async-graphql` to `~7.0.17`, which excludes the 7.2 series.
+This fork uses `^7.0.17` so Cargo can resolve one GraphQL version across
+Seaography and downstream crates. This fork compiles with async-graphql 7.2.1
+and SeaORM 2.0.4.
 
-**1. `src/query/filtering.rs`** - Added null check in `get_filter_conditions()`:
-
-```rust
-if let Some(filters) = filters {
-    if filters.is_null() {
-        return Ok(Condition::all());
-    }
-    let filters = filters.object()?;
-    // ...
-}
-```
-
-**2. `src/inputs/order_input.rs`** - Added null check in `parse_object()`:
-
-```rust
-Some(value) => {
-    if value.is_null() {
-        return Ok(Vec::new());
-    }
-    let order_by = value.object()?;
-    // ...
-}
-```
-
-**3. `src/inputs/pagination_input.rs`** - Added null check in `parse_object()`:
-
-```rust
-let binding = value.expect("Checked not null");
-if binding.is_null() {
-    return Ok(PaginationInput { cursor: None, offset: None, page: None });
-}
-let object = binding.object()?;
-```
-
-**4. `src/query/having.rs`** - Added null check in `get_having_conditions()`:
-
-```rust
-if let Some(having) = having {
-    if having.is_null() {
-        return Ok(condition);
-    }
-    let having = having.object()?;
-    // ...
-}
-```
-
-**5. `src/outputs/entity_object.rs`** - Dereference `Box<Value>` for `Value::from_json()`:
-
-```rust
-value.map(|it| match Value::from_json(*it.clone()) {
-    Ok(v) => v,
-    Err(_) => Value::from(it.to_string()),
-})
-```
-
-**6. `src/builder_context/types_map.rs`** - Box the value for `sea_orm::Value::Json`:
-
-```rust
-sea_orm::Value::Json(Some(Box::new(value)))
-```
-
-Patches 5-6 fix compatibility with sea-orm 2.0.0-rc.32, which changed `Value::Json` to use `Box<serde_json::Value>` instead of plain `serde_json::Value`.
-
-**7. `Cargo.toml`** - Widen `async-graphql` version constraint from `~7.0.17` to `^7.0.17`:
-
-Upstream pins `async-graphql` to `~7.0.17` (`>=7.0.17, <7.1.0`), which excludes the 7.2 series. Changed to `^7.0.17` to allow resolution with newer minor versions.
+The earlier boxed JSON value compatibility changes are present in upstream
+2.0.0-rc.9 and no longer need separate fork patches.
